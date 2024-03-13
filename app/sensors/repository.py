@@ -1,7 +1,9 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import json
 
+from app import redis_client
 from . import models, schemas
 
 def get_sensor(db: Session, sensor_id: int) -> Optional[models.Sensor]:
@@ -20,13 +22,19 @@ def create_sensor(db: Session, sensor: schemas.SensorCreate) -> models.Sensor:
     db.refresh(db_sensor)
     return db_sensor
 
-def record_data(redis: Session, sensor_id: int, data: schemas.SensorData) -> schemas.Sensor:
-    db_sensordata = data
-    return db_sensordata
+def record_data(redis: redis_client, sensor_id: int, data: schemas.SensorData) -> schemas.Sensor:
+    sensorData = json.dumps(data.dict())
+    return redis.set(sensor_id, sensorData)
 
-def get_data(redis: Session, sensor_id: int, data: schemas.SensorData) -> schemas.Sensor:
-    db_sensordata = data
-    return db_sensordata
+def get_data(redis: redis_client.RedisClient, sensor_id: int, db:Session) -> schemas.Sensor:
+    db_sensor = get_sensor(db, sensor_id)
+    if db_sensor is None:
+        raise HTTPException(status_code=404, detail="Sensor not found")
+    sensorDataDB = redis.get(sensor_id)
+    sensor_data = json.loads(sensorDataDB.decode())
+    sensor_data['id'] = db_sensor.id
+    sensor_data['name'] = db_sensor.name
+    return sensor_data
 
 def delete_sensor(db: Session, sensor_id: int):
     db_sensor = db.query(models.Sensor).filter(models.Sensor.id == sensor_id).first()
