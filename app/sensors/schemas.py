@@ -34,5 +34,5 @@ class SensorData(BaseModel):
     velocity: Optional[float]
     temperature: Optional[float]
     humidity: Optional[float]
-    battery_level: float
+    battery_level: Optional[float]
     last_seen: str
